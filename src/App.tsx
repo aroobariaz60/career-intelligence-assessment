@@ -45,7 +45,7 @@ function App() {
   const [scores, setScores] = useState<Scores>({ body: 0, picture: 0, word: 0, logic: 0, music: 0, people: 0 });
   const [feedback, setFeedback] = useState<FeedbackData>({ easyToUse: '', enjoyedTest: '', quickFeedback: '' });
   const [adminError, setAdminError] = useState('');
-  const [, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check URL hash for admin access
   useEffect(() => {
@@ -96,13 +96,15 @@ function App() {
     return highest[0]?.label || 'Body Smart';
   }, []);
 
-  const submitToDatabase = useCallback(async () => {
+  const handleFeedbackSubmit = useCallback(async (data: FeedbackData) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
-
-    const highestIntelligence = getHighestIntelligence(scores);
-    const matchingCategories = categories.filter((c) => c.label === highestIntelligence);
+    setFeedback(data);
 
     try {
+      const highestIntelligence = getHighestIntelligence(scores);
+      const matchingCategories = categories.filter((c) => c.label === highestIntelligence);
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(`${supabaseUrl}/functions/v1/submit-assessment`, {
         method: 'POST',
@@ -116,25 +118,22 @@ function App() {
           scores,
           highestIntelligence,
           recommendedCareers: matchingCategories.flatMap((c) => c.careers),
-          feedback,
+          feedback: data,
         }),
       });
 
       if (!response.ok) {
         console.error('Failed to submit to database');
+        setIsSubmitting(false);
+        return;
       }
+
+      setStep('thankyou');
     } catch (err) {
       console.error('Error submitting to database:', err);
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
-  }, [student, answers, scores, feedback, getHighestIntelligence]);
-
-  const handleFeedbackSubmit = useCallback(async (data: FeedbackData) => {
-    setFeedback(data);
-    await submitToDatabase();
-    setStep('thankyou');
-  }, [submitToDatabase]);
+  }, [isSubmitting, student, answers, scores, getHighestIntelligence]);
 
   const handleRestart = useCallback(() => {
     setStep('student');
@@ -282,6 +281,7 @@ function App() {
           <Feedback
             onSubmit={handleFeedbackSubmit}
             onBack={handleBackToResults}
+            isSubmitting={isSubmitting}
           />
         )}
         {step === 'thankyou' && (

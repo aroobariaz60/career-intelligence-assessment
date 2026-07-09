@@ -1,13 +1,14 @@
 import { useState, FormEvent } from 'react';
-import { ArrowLeft, Send, MessageSquare, Mail } from 'lucide-react';
+import { ArrowLeft, Send, MessageSquare, Mail, Loader2 } from 'lucide-react';
 import type { FeedbackData } from '../App';
 
 interface FeedbackProps {
   onSubmit: (data: FeedbackData) => void;
   onBack: () => void;
+  isSubmitting: boolean;
 }
 
-export function Feedback({ onSubmit, onBack }: FeedbackProps) {
+export function Feedback({ onSubmit, onBack, isSubmitting }: FeedbackProps) {
   const [easyToUse, setEasyToUse] = useState('');
   const [enjoyedTest, setEnjoyedTest] = useState('');
   const [quickFeedback, setQuickFeedback] = useState('');
@@ -163,13 +164,26 @@ export function Feedback({ onSubmit, onBack }: FeedbackProps) {
 
         {/* Buttons */}
         <div className="flex items-center justify-between gap-4 pt-4 border-t border-gray-200">
-          <button type="button" onClick={onBack} className="btn-secondary">
+          <button type="button" onClick={onBack} className="btn-secondary" disabled={isSubmitting}>
             <ArrowLeft className="w-5 h-5" />
             Back to Results
           </button>
-          <button type="submit" className="btn-primary">
-            Submit Feedback
-            <Send className="w-5 h-5" />
+          <button
+            type="submit"
+            className="btn-primary min-w-[160px] justify-center"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                Submit Feedback
+                <Send className="w-5 h-5" />
+              </>
+            )}
           </button>
         </div>
       </form>
