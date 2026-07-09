@@ -116,50 +116,88 @@ Deno.serve(async (req: Request) => {
       // Don't fail the request if Google Sheets fails
     }
 
-    // Send email notification to admin (if configured)
+    // Send email notification to admin via Resend (if configured)
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const adminEmail = Deno.env.get("ADMIN_EMAIL");
-    const emailWebhook = Deno.env.get("EMAIL_WEBHOOK_URL");
 
-    if (adminEmail && emailWebhook) {
+    if (resendApiKey && adminEmail) {
       try {
-        const emailContent = {
-          to: adminEmail,
-          subject: `New Career Assessment Submission from ${data.fullName}`,
-          body: `
-New Career Intelligence Assessment Submitted
-
-Student Name: ${data.fullName}
-Email: ${data.email}
-
-INTELLIGENCE SCORES:
-- Body Smart: ${data.scores.body}/24
-- Picture Smart: ${data.scores.picture}/24
-- Word Smart: ${data.scores.word}/24
-- Logic/Math Smart: ${data.scores.logic}/24
-- Music Smart: ${data.scores.music}/24
-- People Smart: ${data.scores.people}/24
-
-HIGHEST INTELLIGENCE: ${data.highestIntelligence}
-
-RECOMMENDED CAREERS:
-${data.recommendedCareers.map(c => `- ${c}`).join("\n")}
-
-FEEDBACK:
-- Website easy to use: ${data.feedback?.easyToUse || "Not provided"}
-- Enjoyed the test: ${data.feedback?.enjoyedTest || "Not provided"}
-- Quick feedback: ${data.feedback?.quickFeedback || "Not provided"}
-
-Submitted at: ${new Date().toLocaleString()}
-          `.trim(),
-        };
-
-        await fetch(emailWebhook, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(emailContent),
+        const timestamp = new Date().toLocaleString("en-US", {
+          dateStyle: "full",
+          timeStyle: "long",
         });
+
+        const totalScore = data.scores.body + data.scores.picture + data.scores.word +
+          data.scores.logic + data.scores.music + data.scores.people;
+
+        const careersList = data.recommendedCareers.map((c: string) => `<li style="margin: 4px 0;">${c}</li>`).join("");
+
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+            <div style="background: linear-gradient(135deg, #0ea5e9, #10b981); padding: 20px; border-radius: 12px 12px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">New Assessment Submission</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Career Intelligence Assessment</p>
+            </div>
+            <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <h2 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Student Information</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 8px 0; color: #6b7280; width: 140px;">Name:</td><td style="padding: 8px 0; color: #1f2937; font-weight: 600;">${data.fullName}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">Email:</td><td style="padding: 8px 0; color: #1f2937;">${data.email}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">Submitted:</td><td style="padding: 8px 0; color: #1f2937;">${timestamp}</td></tr>
+              </table>
+
+              <h2 style="color: #1f2937; margin-top: 24px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Intelligence Scores (Max 24 each)</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 6px 0; color: #6b7280;">Body Smart:</td><td style="padding: 6px 0; color: #1f2937; font-weight: 500;">${data.scores.body}/24</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280;">Picture Smart:</td><td style="padding: 6px 0; color: #1f2937; font-weight: 500;">${data.scores.picture}/24</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280;">Word Smart:</td><td style="padding: 6px 0; color: #1f2937; font-weight: 500;">${data.scores.word}/24</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280;">Logic/Math Smart:</td><td style="padding: 6px 0; color: #1f2937; font-weight: 500;">${data.scores.logic}/24</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280;">Music Smart:</td><td style="padding: 6px 0; color: #1f2937; font-weight: 500;">${data.scores.music}/24</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280;">People Smart:</td><td style="padding: 6px 0; color: #1f2937; font-weight: 500;">${data.scores.people}/24</td></tr>
+              </table>
+
+              <div style="background: linear-gradient(135deg, #0ea5e9, #10b981); color: white; padding: 16px; border-radius: 8px; margin-top: 20px; text-align: center;">
+                <p style="margin: 0; font-size: 14px; opacity: 0.9;">Highest Intelligence</p>
+                <p style="margin: 4px 0 0 0; font-size: 20px; font-weight: bold;">${data.highestIntelligence}</p>
+                <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Total Score: ${totalScore}/144</p>
+              </div>
+
+              <h2 style="color: #1f2937; margin-top: 24px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Recommended Careers</h2>
+              <ul style="margin: 8px 0; padding-left: 20px; color: #1f2937;">${careersList}</ul>
+
+              <h2 style="color: #1f2937; margin-top: 24px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Feedback</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">Easy to use:</td><td style="padding: 6px 0; color: #1f2937;">${data.feedback?.easyToUse || 'Not provided'}</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280;">Enjoyed test:</td><td style="padding: 6px 0; color: #1f2937;">${data.feedback?.enjoyedTest || 'Not provided'}</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280;">Quick feedback:</td><td style="padding: 6px 0; color: #1f2937;">${data.feedback?.quickFeedback || 'Not provided'}</td></tr>
+              </table>
+            </div>
+            <p style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 20px;">
+              Career Intelligence Assessment - Based on Multiple Intelligences Theory
+            </p>
+          </div>
+        `;
+
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Career Assessment <noreply@resend.dev>",
+            to: adminEmail,
+            subject: `New Assessment: ${data.fullName} - ${data.highestIntelligence}`,
+            html: emailHtml,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error("Resend API error:", errorData);
+        }
       } catch (err) {
-        console.error("Email webhook error:", err);
+        console.error("Email notification error:", err);
         // Don't fail the request if email fails
       }
     }
